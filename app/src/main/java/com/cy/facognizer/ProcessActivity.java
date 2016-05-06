@@ -1,6 +1,7 @@
 package com.cy.facognizer;
 
 import android.app.AlertDialog;
+import android.content.ContentValues;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.database.Cursor;
@@ -11,6 +12,7 @@ import android.graphics.Matrix;
 import android.graphics.drawable.BitmapDrawable;
 import android.graphics.drawable.Drawable;
 import android.net.Uri;
+import android.os.Environment;
 import android.provider.MediaStore;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
@@ -35,18 +37,29 @@ import org.opencv.features2d.DescriptorExtractor;
 import org.opencv.features2d.DescriptorMatcher;
 import org.opencv.features2d.FeatureDetector;
 import org.opencv.features2d.Features2d;
+import org.opencv.imgcodecs.Imgcodecs;
 import org.opencv.imgproc.Imgproc;
 
+import java.io.File;
 import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.TreeMap;
+import java.util.TreeSet;
 
 public class ProcessActivity extends AppCompatActivity {
 
     public static final String PHOTO_FILE_EXTENSION = ".png";
     public static final String PHOTO_MIME_TYPE = "image/png";
+
+    // A matrix that is used when saving photos.
+    private Mat photoMatrix;
 
     public static final String EXTRA_PHOTO_URI =
             "com.cy.flognizer.view.ProcessActivity.extra.PHOTO_URI";
@@ -207,16 +220,75 @@ public class ProcessActivity extends AppCompatActivity {
 
                 return true;
             case R.id.menu_match:
-                double[] results = matchAllRef(getFace(1));
+//                double[] r50 = matchAllRef(getFace(1));
+                double[] r50 = matchAllRef(this.bitmap);
+                double[] r10 = new double[10];
 
-                for (double d: results){
+                double mean = 500;
+                for (int i = 0; i < 10; i++){
+                    r10[i] += r50[i * 5];
+                    r10[i] += r50[i * 5 + 1];
+                    r10[i] += r50[i * 5 + 2];
+                    r10[i] += r50[i * 5 + 3];
+                    r10[i] += r50[i * 5 + 4];
 
+//                    Log.v("fuck", "result: " + r10[i]);
+                    mean = r10[i] < mean ? r10[i] : mean;
                 }
 
+                for (int i = 0; i < 10; i++){
+                    if (r10[i] == mean){
+//                        Log.v("fuck", "index: " + i);
+                        output(i);
+                    }
+                }
                 return true;
             default:
                 return super.onOptionsItemSelected(item);
         }
+    }
+
+    private void output(int i){
+        double random = Math.random();
+
+        int r = random > 0.5 ?
+                MainActivity.POR[i * 2] :
+                MainActivity.POR[i * 2 + 1];
+
+//        this.imageView.setImageResource(r);
+//        Toast.makeText(this, "So Cute!", Toast.LENGTH_LONG).show();
+
+        Bitmap bitmap =
+                BitmapFactory.decodeResource(
+                        getResources(), r);
+
+        this.imageView.setImageBitmap(bitmap);
+//        Log.v("fuck", "isE ? " + bitmap.);
+
+        Mat mat = new Mat(bitmap.getHeight(),
+                bitmap.getHeight(), CvType.CV_8UC4);
+
+        Utils.bitmapToMat(bitmap, mat);
+
+        // save output
+        File dir = new File(Environment.getExternalStorageDirectory() +
+                File.separator + "drawable");
+
+        boolean doSave = true;
+        if (!dir.exists()) {
+            doSave = dir.mkdirs();
+        }
+
+        if (doSave) {
+            boolean b = saveBitmapToFile(dir,
+                    "output-" + System.currentTimeMillis() + ".png",
+                    bitmap,Bitmap.CompressFormat.PNG,100);
+            Log.v("fuck","succ ? " + b);
+        }
+        else {
+            Log.v("fuck","Couldn't create target directory.");
+        }
+
     }
 
     private double[] matchTwoFace(Bitmap face, Bitmap refFace) {
@@ -244,14 +316,9 @@ public class ProcessActivity extends AppCompatActivity {
         detector.detect(image, keyPoint1);
         detector.detect(refImage, keyPoint2);
 
-//        if(!isGray) {
-//            Imgproc.cvtColor(image, image,
-//                    Imgproc.COLOR_BGRA2GRAY);
-//
-//            Imgproc.cvtColor(refImage, refImage,
-//                    Imgproc.COLOR_BGRA2GRAY);
-//            isGray = true;
-//        }
+        // convert to gray scale
+        Imgproc.cvtColor(image, image,
+                    Imgproc.COLOR_BGRA2GRAY);
 
         // Get a descriptorExtractor of two flowers.
         DescriptorExtractor descriptorExtractor =
@@ -263,8 +330,10 @@ public class ProcessActivity extends AppCompatActivity {
         Mat refDescriptor = new Mat();
 
         // Use descriptor extractor to get the descriptors
-        descriptorExtractor.compute(image, keyPoint1, descriptor);
-        descriptorExtractor.compute(refImage, keyPoint2, refDescriptor);
+        descriptorExtractor.compute(
+                image, keyPoint1, descriptor);
+        descriptorExtractor.compute(
+                refImage, keyPoint2, refDescriptor);
 
         // get the matcher for BF matching
         DescriptorMatcher descriptorMatcher =
@@ -275,8 +344,6 @@ public class ProcessActivity extends AppCompatActivity {
 
         // Declare a mat to contain matches
         MatOfDMatch matches = new MatOfDMatch();
-
-        long t1 = System.currentTimeMillis();
 
         // match with normal
         descriptorMatcher.match(descriptor, refDescriptor, matches);
@@ -302,6 +369,7 @@ public class ProcessActivity extends AppCompatActivity {
             }
         }
 
+        long t1 = System.currentTimeMillis();
         // select out the good matches
         for (DMatch match : matches.toList()) {
             if (match.distance < min * 3) {
@@ -316,6 +384,8 @@ public class ProcessActivity extends AppCompatActivity {
 
         long t = System.currentTimeMillis() - t1;
         result[3] = t;
+
+        Log.v("fuck", "time: " + t);
 
 //         Draw matches :
 
@@ -339,10 +409,9 @@ public class ProcessActivity extends AppCompatActivity {
 
             // get the mean
             d[i] = result[2];
-//            Log.v("fuck", "distance: " + d[i]);
+//            Log.v("fuck", "No. " + i + "distance: " + d[i]);
         }
 
-        Log.v("fuck", "|*mean of good match is : " + d + " *|");
         return d;
     }
 
@@ -481,4 +550,36 @@ public class ProcessActivity extends AppCompatActivity {
         startActivity(Intent.createChooser(intent,
                 getString(R.string.photo_send_chooser_title)));
     }
+
+
+    public boolean saveBitmapToFile(File dir, String fileName, Bitmap bm,
+                                    Bitmap.CompressFormat format, int quality) {
+
+        File imageFile = new File(dir,fileName);
+
+        FileOutputStream fos = null;
+        try {
+            fos = new FileOutputStream(imageFile);
+
+            bm.compress(format,quality,fos);
+
+            fos.close();
+
+            return true;
+        }
+        catch (IOException e) {
+            Log.e("app",e.getMessage());
+            if (fos != null) {
+                try {
+                    fos.close();
+                } catch (IOException e1) {
+                    e1.printStackTrace();
+                }
+            }
+        }
+        return false;
+    }
+
+
 }
+

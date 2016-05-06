@@ -3,6 +3,8 @@ package com.cy.facognizer;
 import android.app.AlertDialog;
 import android.content.DialogInterface;
 import android.content.Intent;
+import android.database.Cursor;
+import android.database.sqlite.SQLiteDatabase;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Matrix;
@@ -20,6 +22,7 @@ import android.view.View;
 import android.widget.ImageView;
 import android.widget.Toast;
 
+import com.cy.facognizer.model.Database;
 import com.cy.facognizer.model.Singleton;
 
 import org.opencv.android.Utils;
@@ -56,6 +59,7 @@ public class ProcessActivity extends AppCompatActivity {
 
     // Save the mat image that got from import pic.
     private Mat img;
+    private Bitmap bitmap;
 
     // Save the mat image that processed.
     private Mat processedImg;
@@ -85,10 +89,12 @@ public class ProcessActivity extends AppCompatActivity {
         imageView.setImageURI(uri);
 
         Bitmap bitmap = convertImgViewToBmp(imageView);
+        this.bitmap = bitmap;
 
         img = new Mat(bitmap.getHeight(),
                 bitmap.getWidth(), CvType.CV_8UC4);
         Utils.bitmapToMat(bitmap, img);
+
 
         setContentView(imageView);
         registerForContextMenu(imageView);
@@ -98,20 +104,14 @@ public class ProcessActivity extends AppCompatActivity {
 
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
-
         imageView = new ImageView(this);
-
         if(requestCode == IMPORT_PHOTO){
             try {
-                // Code to load image into a Bitmap and
-                // convert it to a Mat for processing.
-
                 if(data == null){
                     return;
                 }
 
                 final Uri uri = data.getData();
-
                 final InputStream imageStream =
                         getContentResolver().openInputStream(uri);
 
@@ -203,30 +203,35 @@ public class ProcessActivity extends AppCompatActivity {
                 photoPickerIntent.setType("image/*");
                 startActivityForResult(photoPickerIntent, IMPORT_PHOTO);
                 return true;
-
             case R.id.menu_register:
 
                 return true;
             case R.id.menu_match:
+                double[] results = matchAllRef(getFace(1));
 
+                for (double d: results){
+
+                }
+
+                return true;
             default:
                 return super.onOptionsItemSelected(item);
         }
     }
 
-    private double[] matchTwoFlowers(Bitmap flower, Bitmap refFlower) {
+    private double[] matchTwoFace(Bitmap face, Bitmap refFace) {
 
         // Store the result to be a return value
         double[] result = {0, 0, 0, 0};
 
         // Get two mat images of two flowers
-        Mat image = new Mat(flower.getHeight(),
-                flower.getWidth(), CvType.CV_32F);
-        Utils.bitmapToMat(flower, image);
+        Mat image = new Mat(face.getHeight(),
+                face.getWidth(), CvType.CV_32F);
+        Utils.bitmapToMat(face, image);
 
-        Mat refImage = new Mat(flower.getHeight(),
-                flower.getWidth(), CvType.CV_32F);
-        Utils.bitmapToMat(refFlower, refImage);
+        Mat refImage = new Mat(face.getHeight(),
+                face.getWidth(), CvType.CV_32F);
+        Utils.bitmapToMat(refFace, refImage);
 
         // Get a FeatureDetector object
         FeatureDetector detector =
@@ -239,14 +244,14 @@ public class ProcessActivity extends AppCompatActivity {
         detector.detect(image, keyPoint1);
         detector.detect(refImage, keyPoint2);
 
-        if(!isGray) {
-            Imgproc.cvtColor(image, image,
-                    Imgproc.COLOR_BGRA2GRAY);
-
-            Imgproc.cvtColor(refImage, refImage,
-                    Imgproc.COLOR_BGRA2GRAY);
-            isGray = true;
-        }
+//        if(!isGray) {
+//            Imgproc.cvtColor(image, image,
+//                    Imgproc.COLOR_BGRA2GRAY);
+//
+//            Imgproc.cvtColor(refImage, refImage,
+//                    Imgproc.COLOR_BGRA2GRAY);
+//            isGray = true;
+//        }
 
         // Get a descriptorExtractor of two flowers.
         DescriptorExtractor descriptorExtractor =
@@ -305,9 +310,6 @@ public class ProcessActivity extends AppCompatActivity {
             }
         }
 
-//        Log.v("fuck", "time per match is: " +
-//                Long.toString(t));
-
         result[0] = min;
         result[1] = goodMatchList.size();
         result[2] = sumOfMatch / goodMatchList.size();
@@ -326,31 +328,22 @@ public class ProcessActivity extends AppCompatActivity {
         return result;
     }
 
-    private double matchAllRef(Bitmap flower, String name) {
-        Bitmap refFlower;
-
-        double mean = 0;
-        long t = 0;
-        for(int i = 0; i < 5; i++){
-            refFlower = singleton.getFlower(name, i + 1);
+    private double[] matchAllRef(Bitmap face) {
+        Bitmap refFace;
+        double[] d = new double[50];
+        for(int i = 0; i < 50; i++){
+            refFace = getFace(i + 1);
 
             double[] result =
-                    matchTwoFlowers(flower, refFlower);
+                    matchTwoFace(face, refFace);
 
-            t += result[3];
-
-//            Log.v("fuck", "with " + name + " " + (i + 1) +
-//                    ", mean :" + result[2] +
-//                    ", time :" + result[3]);
             // get the mean
-            mean += result[2];
+            d[i] = result[2];
+//            Log.v("fuck", "distance: " + d[i]);
         }
-        mean /= 5;
-        Log.v("fuck", "|*mean of good match is : " + mean + " *|");
-//        Log.v("fuck", "|*totally time is : " + t + " *|");
-//        Log.v("fuck", "|*mean of shape is : " + mean + " *|");
 
-        return mean;
+        Log.v("fuck", "|*mean of good match is : " + d + " *|");
+        return d;
     }
 
     private void drawMatches(Mat image, MatOfKeyPoint keyPoint,
@@ -400,6 +393,29 @@ public class ProcessActivity extends AppCompatActivity {
 //            Log.d("debug", "sequenceBitmap is null--------");
 //        }
         return sequenceBitmap;
+    }
+
+
+    private Bitmap getFace(int id){
+
+        Database database = new Database(this.getApplicationContext());
+        SQLiteDatabase sqldb = database.getReadableDatabase();
+
+        String[] cols = {"bitmap"};
+
+        Cursor c = sqldb.query("face", cols,
+                "id = " + id, null, null, null, null, null);
+
+        c.moveToLast();
+
+        byte[] binaryBitmap = c.getBlob(0);
+        Bitmap bitmap = BitmapFactory.decodeByteArray(
+                binaryBitmap, 0, binaryBitmap.length);
+
+        c.close();
+        sqldb.close();
+
+        return bitmap;
     }
 
     private void afterProcess(Mat image, Mat procImg){

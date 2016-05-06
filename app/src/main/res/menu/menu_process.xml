@@ -7,29 +7,9 @@
         android:title="IMPORT"
         app:showAsAction="always|withText"
         />
-    <!--<item-->
-        <!--android:id="@+id/menu_blur"-->
-        <!--android:title="BLUR"-->
-        <!--app:showAsAction="always|withText"-->
-        <!--/>-->
-    <!--<item-->
-        <!--android:id="@+id/menu_threshold"-->
-        <!--android:title="THRESHOLD"-->
-        <!--app:showAsAction="always|withText"-->
-        <!--/>-->
-    <!--<item-->
-        <!--android:id="@+id/menu_contours"-->
-        <!--android:title="Contours"-->
-        <!--app:showAsAction="always|withText"-->
-        <!--/>-->
-    <!--<item-->
-        <!--android:id="@+id/menu_sobel"-->
-        <!--android:title="SOBEL"-->
-        <!--app:showAsAction="always|withText"-->
-        <!--/>-->
     <item
         android:id="@+id/menu_register"
-        android:title="Register"
+        android:title="Btn"
         app:showAsAction="always|withText"
         />
     <item

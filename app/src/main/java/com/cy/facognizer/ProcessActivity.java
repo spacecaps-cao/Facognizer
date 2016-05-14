@@ -28,11 +28,14 @@ import com.cy.facognizer.model.Database;
 import com.cy.facognizer.model.Singleton;
 
 import org.opencv.android.Utils;
+import org.opencv.core.Core;
 import org.opencv.core.CvType;
 import org.opencv.core.DMatch;
 import org.opencv.core.Mat;
 import org.opencv.core.MatOfDMatch;
 import org.opencv.core.MatOfKeyPoint;
+import org.opencv.core.Rect;
+import org.opencv.core.Scalar;
 import org.opencv.features2d.DescriptorExtractor;
 import org.opencv.features2d.DescriptorMatcher;
 import org.opencv.features2d.FeatureDetector;
@@ -218,26 +221,33 @@ public class ProcessActivity extends AppCompatActivity {
                 return true;
             case R.id.menu_register:
 
+                Mat imgToGrab = img;
+                Log.v("fuck", "imgToGrab type: " + imgToGrab);
+                Imgproc.cvtColor(imgToGrab, imgToGrab, Imgproc.COLOR_BGRA2RGB);
+//                Log.v("fuck", "imgToGrab type: " + imgToGrab);
+
+                grabCut(imgToGrab);
+
                 return true;
             case R.id.menu_match:
 //                double[] r50 = matchAllRef(getFace(1));
-                double[] r50 = matchAllRef(this.bitmap);
-                double[] r10 = new double[10];
+                double[] r60 = matchAllRef(this.bitmap);
+                double[] r12 = new double[12];
 
                 double mean = 500;
-                for (int i = 0; i < 10; i++){
-                    r10[i] += r50[i * 5];
-                    r10[i] += r50[i * 5 + 1];
-                    r10[i] += r50[i * 5 + 2];
-                    r10[i] += r50[i * 5 + 3];
-                    r10[i] += r50[i * 5 + 4];
+                for (int i = 0; i < 12; i++){
+                    r12[i] += r60[i * 5];
+                    r12[i] += r60[i * 5 + 1];
+                    r12[i] += r60[i * 5 + 2];
+                    r12[i] += r60[i * 5 + 3];
+                    r12[i] += r60[i * 5 + 4];
 
 //                    Log.v("fuck", "result: " + r10[i]);
-                    mean = r10[i] < mean ? r10[i] : mean;
+                    mean = r12[i] < mean ? r12[i] : mean;
                 }
 
-                for (int i = 0; i < 10; i++){
-                    if (r10[i] == mean){
+                for (int i = 0; i < 12; i++){
+                    if (r12[i] == mean){
 //                        Log.v("fuck", "index: " + i);
                         output(i);
                     }
@@ -248,12 +258,64 @@ public class ProcessActivity extends AppCompatActivity {
         }
     }
 
-    private void output(int i){
-        double random = Math.random();
+    private void grabCut(Mat src){
 
-        int r = random > 0.5 ?
-                MainActivity.POR[i * 2] :
-                MainActivity.POR[i * 2 + 1];
+        // 首先，搞一个矩形框。外边默认是背景，里边的内容将会被执行grabcut。
+        int w = src.cols() - 10;
+        int h = src.rows() - 10;
+        Rect rect = new Rect(5, 5, w, h);
+
+        // 创建两个Mat：前景和背景。注意，前景不等于结果，只是一个内部中间量。
+        Mat bg = new Mat();
+        Mat fg = new Mat();
+
+        // 创建一个用来装结果的Mat，并开始grabcut：
+        Mat result = new Mat();
+        Imgproc.grabCut(src, result, rect,
+                bg, fg, 1, Imgproc.GC_INIT_WITH_RECT);
+        Mat source = new Mat(1, 1, CvType.CV_8U, new Scalar(Imgproc.GC_PR_FGD));
+//        Mat source = new Mat(1, 1, CvType.CV_8U, new Scalar(3.0));
+//        Core.compare(result, new Scalar(Imgproc.GC_PR_FGD),
+//                result, Core.CMP_EQ);
+
+        Core.compare(result, source, result, Core.CMP_EQ);
+
+//        //
+//        Mat foreground = new Mat(src.size(),
+//                CvType.CV_8UC3, new Scalar(238,138,120));
+//        src.copyTo(foreground, result);
+//
+//        Bitmap b = Bitmap.createBitmap(foreground.cols(),
+//                foreground.rows(), Bitmap.Config.RGB_565);
+//
+//        Utils.matToBitmap(foreground, b);
+//        imageView.setImageBitmap(b);
+
+        //
+        Mat background = new Mat(src.size(),
+                CvType.CV_8UC3, new Scalar(100,200,200));
+        src.copyTo(background, result);
+
+        Bitmap b = Bitmap.createBitmap(background.cols(),
+                background.rows(), Bitmap.Config.RGB_565);
+
+        Utils.matToBitmap(background, b);
+        imageView.setImageBitmap(b);
+    }
+
+    private void output(int i){
+        int r = 0;
+        if(i == 10){
+            r = MainActivity.POR[0];
+        } else if (i == 11) {
+            r = MainActivity.POR[4];
+        } else {
+            double random = Math.random();
+
+            r = random > 0.5 ?
+                    MainActivity.POR[i * 2] :
+                    MainActivity.POR[i * 2 + 1];
+        }
 
 //        this.imageView.setImageResource(r);
 //        Toast.makeText(this, "So Cute!", Toast.LENGTH_LONG).show();
@@ -400,8 +462,8 @@ public class ProcessActivity extends AppCompatActivity {
 
     private double[] matchAllRef(Bitmap face) {
         Bitmap refFace;
-        double[] d = new double[50];
-        for(int i = 0; i < 50; i++){
+        double[] d = new double[60];
+        for(int i = 0; i < 60; i++){
             refFace = getFace(i + 1);
 
             double[] result =

@@ -40,7 +40,9 @@ public class MainActivity extends AppCompatActivity {
             R.drawable.f61, R.drawable.f62, R.drawable.f63, R.drawable.f64, R.drawable.f65,
             R.drawable.f71, R.drawable.f72, R.drawable.f73, R.drawable.f74, R.drawable.f75,
             R.drawable.f81, R.drawable.f82, R.drawable.f83, R.drawable.f84, R.drawable.f85,
-            R.drawable.f91, R.drawable.f92, R.drawable.f93, R.drawable.f94, R.drawable.f95
+            R.drawable.f91, R.drawable.f92, R.drawable.f93, R.drawable.f94, R.drawable.f95,
+            R.drawable.f101, R.drawable.f102, R.drawable.f103, R.drawable.f104, R.drawable.f105,
+            R.drawable.f111, R.drawable.f112, R.drawable.f113, R.drawable.f114, R.drawable.f115
     };
 
     public static int[] POR = {
@@ -76,6 +78,12 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
+//        registLoop();
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
         registLoop();
     }
 

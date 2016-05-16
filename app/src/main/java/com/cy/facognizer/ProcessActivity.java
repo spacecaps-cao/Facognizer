@@ -219,16 +219,16 @@ public class ProcessActivity extends AppCompatActivity {
                 photoPickerIntent.setType("image/*");
                 startActivityForResult(photoPickerIntent, IMPORT_PHOTO);
                 return true;
-            case R.id.menu_register:
+//            case R.id.menu_register:
 
-                Mat imgToGrab = img;
-                Log.v("fuck", "imgToGrab type: " + imgToGrab);
-                Imgproc.cvtColor(imgToGrab, imgToGrab, Imgproc.COLOR_BGRA2RGB);
+//                Mat imgToGrab = img;
 //                Log.v("fuck", "imgToGrab type: " + imgToGrab);
+//                Imgproc.cvtColor(imgToGrab, imgToGrab, Imgproc.COLOR_BGRA2RGB);
+////                Log.v("fuck", "imgToGrab type: " + imgToGrab);
+//
+//                grabCut(imgToGrab);
 
-                grabCut(imgToGrab);
-
-                return true;
+//                return true;
             case R.id.menu_match:
 //                double[] r50 = matchAllRef(getFace(1));
                 double[] r60 = matchAllRef(this.bitmap);
@@ -318,7 +318,7 @@ public class ProcessActivity extends AppCompatActivity {
         }
 
 //        this.imageView.setImageResource(r);
-//        Toast.makeText(this, "So Cute!", Toast.LENGTH_LONG).show();
+        Toast.makeText(this, "So Cute!", Toast.LENGTH_LONG).show();
 
         Bitmap bitmap =
                 BitmapFactory.decodeResource(
@@ -332,23 +332,97 @@ public class ProcessActivity extends AppCompatActivity {
 
         Utils.bitmapToMat(bitmap, mat);
 
+        takePhoto(mat);
+
+
+
+
         // save output
-        File dir = new File(Environment.getExternalStorageDirectory() +
-                File.separator + "drawable");
+//        File dir = new File(Environment.getExternalStorageDirectory() +
+//                File.separator + "drawable");
+//        File dir = new File(albumPath);
+//
+//        boolean b = saveBitmapToFile(dir,
+//                "output-" + System.currentTimeMillis() + ".png",
+//                bitmap,Bitmap.CompressFormat.PNG, 100);
+//        Log.v("fuck", "succ ? " + b);
+//        Toast.makeText(this, "succ ? " + b,
+//                Toast.LENGTH_LONG).show();
 
-        boolean doSave = true;
-        if (!dir.exists()) {
-            doSave = dir.mkdirs();
+//        boolean doSave = true;
+//        if (!dir.exists()) {
+//            Log.v("fuck", " not exists");
+//            doSave = dir.mkdirs();
+//        }
+//
+//        if (doSave) {
+//            boolean b = saveBitmapToFile(dir,
+//        "output-" + System.currentTimeMillis() + ".png",
+//                bitmap,Bitmap.CompressFormat.PNG, 100);
+//        Log.v("fuck", "succ ? " + b);
+//        }
+//        else {
+//            Log.v("fuck","Couldn't create target directory.");
+//        }
+
+    }
+
+    // The "Take Photo" method
+    public void takePhoto( Mat rgba){
+
+        // Determine the path and metadata for the photo.
+        final long currentTimeMills = System.currentTimeMillis();
+        final String appName = getString(R.string.app_name);
+        final String galleryPath =
+                Environment.getExternalStoragePublicDirectory(
+                        Environment.DIRECTORY_PICTURES).toString();
+        final String albumPath = galleryPath + File.separator +
+                appName;
+        final String photoPath = albumPath + File.separator +
+                currentTimeMills + ProcessActivity.PHOTO_FILE_EXTENSION;
+
+        // Use the content provider to deliver the photo to ProcessActivity.
+        final ContentValues values = new ContentValues();
+
+        // Put the values to the ContentProvider
+        values.put(MediaStore.MediaColumns.DATA, photoPath);
+        values.put(MediaStore.Images.Media.MIME_TYPE,
+                ProcessActivity.PHOTO_MIME_TYPE);
+        values.put(MediaStore.Images.Media.TITLE, appName);
+        values.put(MediaStore.Images.Media.DESCRIPTION, appName);
+        values.put(MediaStore.Images.Media.DATE_TAKEN, currentTimeMills);
+
+        // Ensure that the album directory exists
+        File album = new File(albumPath);
+        if(!album.isDirectory() && !album.mkdirs()){
+            Log.v("fuck","Failed to create album directory at " +
+                    albumPath);
+            return;
         }
 
-        if (doSave) {
-            boolean b = saveBitmapToFile(dir,
-                    "output-" + System.currentTimeMillis() + ".png",
-                    bitmap,Bitmap.CompressFormat.PNG,100);
-            Log.v("fuck","succ ? " + b);
+        // Try to create the photo
+//        Imgproc.cvtColor(rgba, photoMatrix, Imgproc.COLOR_RGBA2BGR, 3);
+        if(!Imgcodecs.imwrite(photoPath, rgba)){
+//            log("Failed to save photo to " + photoPath);
         }
-        else {
-            Log.v("fuck","Couldn't create target directory.");
+        Toast.makeText(this, "Photo saved successfully to " + photoPath,
+                Toast.LENGTH_LONG).show();
+
+        // Try to insert the photo into the MediaStore.
+        Uri uri;
+        try {
+            uri = getContentResolver().insert(
+                    MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values);
+        } catch (final Exception e) {
+            Log.v("fuck", "Failed to insert photo into MediaStore");
+            e.printStackTrace();
+
+            // Since the insertion failed, delete the photo.
+            File photo = new File(photoPath);
+            if (!photo.delete()){
+                Log.v("fuck", "Failed to delete non-inserted photo");
+            }
+            return;
         }
 
     }

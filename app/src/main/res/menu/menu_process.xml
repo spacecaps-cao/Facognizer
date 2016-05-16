@@ -7,11 +7,11 @@
         android:title="IMPORT"
         app:showAsAction="always|withText"
         />
-    <item
-        android:id="@+id/menu_register"
-        android:title="Btn"
-        app:showAsAction="always|withText"
-        />
+    <!--<item-->
+        <!--android:id="@+id/menu_register"-->
+        <!--android:title="Btn"-->
+        <!--app:showAsAction="always|withText"-->
+        <!--/>-->
     <item
         android:id="@+id/menu_match"
         android:title="Match"

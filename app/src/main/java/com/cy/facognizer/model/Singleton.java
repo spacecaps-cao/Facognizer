@@ -31,12 +31,13 @@ import java.util.List;
  */
 public class Singleton {
 
+    // 单例模式
     private static Singleton singleton = null;
+    // 获取andorid sqlite对象
     private Database database = null;
     private SQLiteDatabase sqldb = null;
 
     public List<Double> chns = new ArrayList<Double>();
-    public double[][][] channels = new double[4][15][3];
 
     private Singleton(Context context){
         this.database = new Database(context);
@@ -48,21 +49,6 @@ public class Singleton {
         return singleton;
     }
 
-    private void getColor(Mat img) {
-        int w = img.rows() / 4;
-        int h = img.cols() / 4;
-        Mat m = img.submat(w, w * 2, h, h * 2);
-
-        Scalar chnn = Core.mean(m);
-        chns.add(chnn.val[2]);
-        chns.add(chnn.val[1]);
-        chns.add(chnn.val[0]);
-//        Log.v("fuck", "B: " + chnn.val[2]);//B
-//        Log.v("fuck", "G: " + chnn.val[1]);//G
-//        Log.v("fuck", "R: " + chnn.val[0]);//R
-
-    }
-
     public boolean initDataset(){
         if(ProcessActivity.count != 0){
             return false;
@@ -72,22 +58,26 @@ public class Singleton {
         return true;
     }
 
-    //
+    // 从数据库当中获取一张图片，根据给定索引
     public Bitmap getFace(String name, int id){
 
+        // 获取数据库对象
         sqldb = database.getReadableDatabase();
-
+        // 给定范围
         String[] cols = {"bitmap"};
 
+        // 结果集
         Cursor c = sqldb.query(name, cols,
                 "id = " + id, null, null, null, null, null);
 
+        // 移动结果集指针，指向下一条纪录
         c.moveToLast();
-
+        // 创建一个bitmap，存储结果
         byte[] binaryBitmap = c.getBlob(0);
         Bitmap bitmap = BitmapFactory.decodeByteArray(
                 binaryBitmap, 0, binaryBitmap.length);
 
+        // 关闭数据库
         c.close();
         sqldb.close();
 

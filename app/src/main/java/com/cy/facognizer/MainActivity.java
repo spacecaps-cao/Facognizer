@@ -27,9 +27,12 @@ import java.io.InputStream;
 
 public class MainActivity extends AppCompatActivity {
 
+    // 北邮的图标
     private ImageView imageView;
+    // 开始按钮
     private Button button;
 
+    // 资源文件的索引
     public static int[] RES = {
             R.drawable.f01, R.drawable.f02, R.drawable.f03, R.drawable.f04, R.drawable.f05,
             R.drawable.f11, R.drawable.f12, R.drawable.f13, R.drawable.f14, R.drawable.f15,
@@ -45,6 +48,7 @@ public class MainActivity extends AppCompatActivity {
             R.drawable.f111, R.drawable.f112, R.drawable.f113, R.drawable.f114, R.drawable.f115
     };
 
+    // 生成的头像的索引
     public static int[] POR = {
             R.drawable.p00, R.drawable.p01,
             R.drawable.p10, R.drawable.p11,
@@ -63,15 +67,19 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
+        // 判断 opencv 是否加载成功
         if (OpenCVLoader.initDebug()) {
             imageView = (ImageView) findViewById(R.id.imageView);
             imageView.setImageResource(R.drawable.logo);
         }
 
+        // 创建一个开是按钮
         button = (Button) findViewById(R.id.button);
+        // 按下按钮，跳转到拍照界面
         button.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
+                // 跳转到拍照界面
                 Intent intent = new Intent(MainActivity.this,
                         CameraActivity.class);
                 startActivity(intent);
@@ -84,28 +92,37 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onResume() {
         super.onResume();
+        // 执行注册
         registLoop();
     }
 
+    // 初始化库，将参考照片写入数据库
     private void registLoop() {
 
+        // 用于计算时间
         long t = System.currentTimeMillis();
 
+        // 获取数据库对象
         Database database = new Database(this.getApplicationContext());
         SQLiteDatabase sqldb = database.getWritableDatabase();
 
+        // 创建键值对
         ContentValues cv = new ContentValues();
 
+        // 创建二进制输出流
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
 
+        // 遍历所有参考图片
         for (int r : RES) {
-
+            // 将将库中的图片转化为bitmap，以便存入数据库
             Bitmap bitmap =
                     BitmapFactory.decodeResource(
                             getResources(), r);
 
+            // 按照png格式解压
             bitmap.compress(Bitmap.CompressFormat.PNG, 100, baos);
             byte[] binaryBitmap = baos.toByteArray();
+            // 在表bitmap中加入此bitmap
             cv.put("bitmap", binaryBitmap);
             try {
                 baos.flush();
@@ -117,6 +134,8 @@ public class MainActivity extends AppCompatActivity {
             sqldb.insert("face", null, cv);
         }
 
+        // 将生成的卡通头像的集合存入数据库，遍历所有卡通头像
+        // 与上一步相似，不做过多注释
         for (int r : POR) {
 
             Bitmap bitmap =

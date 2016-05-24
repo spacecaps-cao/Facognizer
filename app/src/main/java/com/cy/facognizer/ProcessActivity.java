@@ -64,32 +64,35 @@ public class ProcessActivity extends AppCompatActivity {
     // A matrix that is used when saving photos.
     private Mat photoMatrix;
 
+    // 输出头像的存放地址
     public static final String EXTRA_PHOTO_URI =
-            "com.cy.flognizer.view.ProcessActivity.extra.PHOTO_URI";
+            "com.cy.facognizer.view.ProcessActivity.extra.PHOTO_URI";
     public static final String EXTRA_PHOTO_DATA_PATH =
-            "com.cy.flognizer.view.ProcessActivity.extra.PHOTO_DATA_PATH";
+            "com.cy.facognizer.view.ProcessActivity.extra.PHOTO_DATA_PATH";
 
     private Uri uri;
     private String dataPath;
     public static final int IMPORT_PHOTO = 0;
 
-    // Save the mat image that got from import pic.
+    // 存储Mat和Bitmap
     private Mat img;
     private Bitmap bitmap;
 
-    // Save the mat image that processed.
+    // 保存后的图片
     private Mat processedImg;
 
-    // Save the image that got from camera activity.
+    // 当前显示的图片
     private ImageView imageView;
-
+    // 判断是否为灰度图
     private boolean isGray = false;
 
-    // Singleton
+    // Singleton，单例模式的数据库操作对象
     private Singleton singleton = Singleton.getSingleton(ProcessActivity.this);
 
+    // 计数器
     public static int count = 0;
 
+    // 当前图片的 Bitmap
     private Bitmap thisBitmap;
 
     @Override
@@ -98,23 +101,27 @@ public class ProcessActivity extends AppCompatActivity {
 
         final Intent intent = getIntent();
 
-        // get the intent to deliver the picture.
+        // 获取从照相机界面传递来的照片
         uri = intent.getParcelableExtra(EXTRA_PHOTO_URI);
         dataPath = intent.getStringExtra(EXTRA_PHOTO_DATA_PATH);
         imageView = new ImageView(this);
         imageView.setImageURI(uri);
 
+        //转化为bitmap
         Bitmap bitmap = convertImgViewToBmp(imageView);
         this.bitmap = bitmap;
 
+        // 转化为mat
         img = new Mat(bitmap.getHeight(),
                 bitmap.getWidth(), CvType.CV_8UC4);
         Utils.bitmapToMat(bitmap, img);
 
-
+        // 显示在当前界面
         setContentView(imageView);
+        // 为当前图片添加菜单，长按之后就可以删除或者编辑
         registerForContextMenu(imageView);
 
+        // 初始化数据库
         singleton.initDataset();
     }
 
@@ -123,20 +130,22 @@ public class ProcessActivity extends AppCompatActivity {
         imageView = new ImageView(this);
         if(requestCode == IMPORT_PHOTO){
             try {
+                // 如果有数据
                 if(data == null){
                     return;
                 }
 
+                // 创建输入流，对图片进行解码
                 final Uri uri = data.getData();
                 final InputStream imageStream =
                         getContentResolver().openInputStream(uri);
 
+                // 设置解码清晰度
                 Bitmap selectedImage = null;
                 BitmapFactory.Options options = new BitmapFactory.Options();
                 options.inSampleSize = 2;
 
-                // limit the size of a picture.
-                // If greater than 1.2m minification
+                // 把图片限制在1.2m以内，太大了没用
                 try {
                     if(imageStream.available() >= 1200000){
                         selectedImage =
@@ -154,17 +163,21 @@ public class ProcessActivity extends AppCompatActivity {
                 // And judge the orientation of image.
                 if(selectedImage.getHeight() > selectedImage.getWidth()){
 
+                    // 创建一个矩阵
                     Matrix matrix = new Matrix();
+                    // 旋转图片，适应横屏
                     matrix.postRotate(270);
                     selectedImage = Bitmap.createBitmap(selectedImage, 0, 0,
                             selectedImage.getWidth(), selectedImage.getHeight(),
                             matrix, true);
                 }
 
+                // 当前界面显示拍照的结果
                 imageView.setImageBitmap(selectedImage);
                 setContentView(imageView);
                 this.thisBitmap = selectedImage;
 
+                // 将bitmap转化为opencv矩阵，4通道
                 img = new Mat(selectedImage.getHeight(),
                         selectedImage.getWidth(), CvType.CV_8UC4);
 //                        selectedImage.getWidth(), CvType.CV_32F);
@@ -213,27 +226,21 @@ public class ProcessActivity extends AppCompatActivity {
     @Override
     public boolean onOptionsItemSelected(final MenuItem item) {
         switch (item.getItemId()) {
+            // 导入图片
             case R.id.menu_import:
                 Intent photoPickerIntent =
                         new Intent(Intent.ACTION_PICK);
                 photoPickerIntent.setType("image/*");
                 startActivityForResult(photoPickerIntent, IMPORT_PHOTO);
                 return true;
-//            case R.id.menu_register:
-
-//                Mat imgToGrab = img;
-//                Log.v("fuck", "imgToGrab type: " + imgToGrab);
-//                Imgproc.cvtColor(imgToGrab, imgToGrab, Imgproc.COLOR_BGRA2RGB);
-////                Log.v("fuck", "imgToGrab type: " + imgToGrab);
-//
-//                grabCut(imgToGrab);
-
-//                return true;
+            // 匹配图片
             case R.id.menu_match:
-//                double[] r50 = matchAllRef(getFace(1));
+                // 保存60个匹配结果
                 double[] r60 = matchAllRef(this.bitmap);
+                // 保存12 个生成的头像的索引
                 double[] r12 = new double[12];
 
+                // 求最小值
                 double mean = 500;
                 for (int i = 0; i < 12; i++){
                     r12[i] += r60[i * 5];
@@ -242,10 +249,11 @@ public class ProcessActivity extends AppCompatActivity {
                     r12[i] += r60[i * 5 + 3];
                     r12[i] += r60[i * 5 + 4];
 
-//                    Log.v("fuck", "result: " + r10[i]);
+                    // 正则表达式
                     mean = r12[i] < mean ? r12[i] : mean;
                 }
 
+                // 选出最小值对应的头像
                 for (int i = 0; i < 12; i++){
                     if (r12[i] == mean){
 //                        Log.v("fuck", "index: " + i);
@@ -303,6 +311,7 @@ public class ProcessActivity extends AppCompatActivity {
         imageView.setImageBitmap(b);
     }
 
+    // 输入卡通头像
     private void output(int i){
         int r = 0;
         if(i == 10){
@@ -310,6 +319,8 @@ public class ProcessActivity extends AppCompatActivity {
         } else if (i == 11) {
             r = MainActivity.POR[4];
         } else {
+            // 产生随机数，0 ～ 1 之间
+            // （因为每个结果对应2个随机头像）
             double random = Math.random();
 
             r = random > 0.5 ?
@@ -317,25 +328,20 @@ public class ProcessActivity extends AppCompatActivity {
                     MainActivity.POR[i * 2 + 1];
         }
 
-//        this.imageView.setImageResource(r);
+        // 显示提示
         Toast.makeText(this, "So Cute!", Toast.LENGTH_LONG).show();
 
+        // 转化为mat，以便保存
         Bitmap bitmap =
                 BitmapFactory.decodeResource(
                         getResources(), r);
-
         this.imageView.setImageBitmap(bitmap);
-//        Log.v("fuck", "isE ? " + bitmap.);
-
         Mat mat = new Mat(bitmap.getHeight(),
                 bitmap.getHeight(), CvType.CV_8UC4);
-
         Utils.bitmapToMat(bitmap, mat);
 
+        // 保存结果头像，写入相册里
         takePhoto(mat);
-
-
-
 
         // save output
 //        File dir = new File(Environment.getExternalStorageDirectory() +
@@ -370,7 +376,7 @@ public class ProcessActivity extends AppCompatActivity {
     // The "Take Photo" method
     public void takePhoto( Mat rgba){
 
-        // Determine the path and metadata for the photo.
+        // 获取当前上下文的路径.
         final long currentTimeMills = System.currentTimeMillis();
         final String appName = getString(R.string.app_name);
         final String galleryPath =
@@ -381,10 +387,10 @@ public class ProcessActivity extends AppCompatActivity {
         final String photoPath = albumPath + File.separator +
                 currentTimeMills + ProcessActivity.PHOTO_FILE_EXTENSION;
 
-        // Use the content provider to deliver the photo to ProcessActivity.
+        // 创建一个键值对
         final ContentValues values = new ContentValues();
 
-        // Put the values to the ContentProvider
+        // 读取照片到内存
         values.put(MediaStore.MediaColumns.DATA, photoPath);
         values.put(MediaStore.Images.Media.MIME_TYPE,
                 ProcessActivity.PHOTO_MIME_TYPE);
@@ -392,7 +398,7 @@ public class ProcessActivity extends AppCompatActivity {
         values.put(MediaStore.Images.Media.DESCRIPTION, appName);
         values.put(MediaStore.Images.Media.DATE_TAKEN, currentTimeMills);
 
-        // Ensure that the album directory exists
+        // 确保目录存在
         File album = new File(albumPath);
         if(!album.isDirectory() && !album.mkdirs()){
             Log.v("fuck","Failed to create album directory at " +
@@ -400,15 +406,14 @@ public class ProcessActivity extends AppCompatActivity {
             return;
         }
 
-        // Try to create the photo
-//        Imgproc.cvtColor(rgba, photoMatrix, Imgproc.COLOR_RGBA2BGR, 3);
+        // 开始保存
         if(!Imgcodecs.imwrite(photoPath, rgba)){
 //            log("Failed to save photo to " + photoPath);
         }
         Toast.makeText(this, "Photo saved successfully to " + photoPath,
                 Toast.LENGTH_LONG).show();
 
-        // Try to insert the photo into the MediaStore.
+        // 加入媒体库
         Uri uri;
         try {
             uri = getContentResolver().insert(
@@ -427,12 +432,13 @@ public class ProcessActivity extends AppCompatActivity {
 
     }
 
+    // 匹配两张照片，返回一个double数，以描述相似程度
     private double[] matchTwoFace(Bitmap face, Bitmap refFace) {
 
-        // Store the result to be a return value
+        // 创建一个空的数组，以储存结果
         double[] result = {0, 0, 0, 0};
 
-        // Get two mat images of two flowers
+        // 获取两张图片的矩阵
         Mat image = new Mat(face.getHeight(),
                 face.getWidth(), CvType.CV_32F);
         Utils.bitmapToMat(face, image);
@@ -441,58 +447,56 @@ public class ProcessActivity extends AppCompatActivity {
                 face.getWidth(), CvType.CV_32F);
         Utils.bitmapToMat(refFace, refImage);
 
-        // Get a FeatureDetector object
+        // 创建FeatureDetector对象
         FeatureDetector detector =
                 FeatureDetector.create(FeatureDetector.ORB);
 
         MatOfKeyPoint keyPoint1 = new MatOfKeyPoint();
         MatOfKeyPoint keyPoint2 = new MatOfKeyPoint();
 
-        // To detect the image
+        // 开始为每个图片探测500个特征点
         detector.detect(image, keyPoint1);
         detector.detect(refImage, keyPoint2);
 
-        // convert to gray scale
+        // 转化为灰度图
         Imgproc.cvtColor(image, image,
                     Imgproc.COLOR_BGRA2GRAY);
 
-        // Get a descriptorExtractor of two flowers.
+        // 创建descriptorExtractor
         DescriptorExtractor descriptorExtractor =
                 DescriptorExtractor.
                         create(DescriptorExtractor.ORB);
 
-        // declare two descriptors to contain the features
+        // 分别创建两个描述算子
         Mat descriptor = new Mat();
         Mat refDescriptor = new Mat();
 
-        // Use descriptor extractor to get the descriptors
+        // 开始将两张图的特征点进行描述
         descriptorExtractor.compute(
                 image, keyPoint1, descriptor);
         descriptorExtractor.compute(
                 refImage, keyPoint2, refDescriptor);
 
-        // get the matcher for BF matching
+        // 创建一个Brute-Force Hamming 匹配器对象
         DescriptorMatcher descriptorMatcher =
                 DescriptorMatcher.create(
                         DescriptorMatcher.BRUTEFORCE_HAMMING);
 
-        // normal match:
-
-        // Declare a mat to contain matches
+        // 创建一个容器，以保存匹配结果
         MatOfDMatch matches = new MatOfDMatch();
 
-        // match with normal
+        // 开始匹配
         descriptorMatcher.match(descriptor, refDescriptor, matches);
 
         double sumOfMatch = 0;
 
-        // to include the matches
+        // 使用集合保存结果
         List<DMatch> matchList = matches.toList();
 
-        // to embrace the good matches
+        // 创建集合保存筛选后的结果
         List<DMatch> goodMatchList = new ArrayList<DMatch>();
 
-        // Calculate the max and min
+        // 计算500个匹配结果中的最大值和最小值
         double max = 0.0;
         double min = 100.0;
         for (int i = 0; i < matchList.size(); i++) {
@@ -505,8 +509,9 @@ public class ProcessActivity extends AppCompatActivity {
             }
         }
 
+        // 计算时间
         long t1 = System.currentTimeMillis();
-        // select out the good matches
+        // 筛选出好的匹配点，并且存入前边定义的集合
         for (DMatch match : matches.toList()) {
             if (match.distance < min * 3) {
                 goodMatchList.add(match);
@@ -514,10 +519,10 @@ public class ProcessActivity extends AppCompatActivity {
             }
         }
 
+        // 纪录4个结果，返回
         result[0] = min;
         result[1] = goodMatchList.size();
         result[2] = sumOfMatch / goodMatchList.size();
-
         long t = System.currentTimeMillis() - t1;
         result[3] = t;
 
@@ -534,16 +539,19 @@ public class ProcessActivity extends AppCompatActivity {
         return result;
     }
 
+    // 匹配所有的库中的图片，该方法旨在将前边的方法迭代
     private double[] matchAllRef(Bitmap face) {
         Bitmap refFace;
         double[] d = new double[60];
+        // 循环60次，因为库中有60张图片
         for(int i = 0; i < 60; i++){
             refFace = getFace(i + 1);
 
+            // 存储结果
             double[] result =
                     matchTwoFace(face, refFace);
 
-            // get the mean
+            // 获取最小值
             d[i] = result[2];
 //            Log.v("fuck", "No. " + i + "distance: " + d[i]);
         }
@@ -569,6 +577,7 @@ public class ProcessActivity extends AppCompatActivity {
         imageView.setImageBitmap(bmp);
     }
 
+    // 把当前显示的图片转化为bitmap
     private Bitmap convertImgViewToBmp(ImageView imageView){
 
         Drawable drawable = imageView.getDrawable();
@@ -600,7 +609,7 @@ public class ProcessActivity extends AppCompatActivity {
         return sequenceBitmap;
     }
 
-
+    // 从数据库当中提取一个图片
     private Bitmap getFace(int id){
 
         Database database = new Database(this.getApplicationContext());
